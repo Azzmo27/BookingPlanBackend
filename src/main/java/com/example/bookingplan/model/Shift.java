@@ -24,5 +24,11 @@ public class Shift {
     @ManyToOne
     private User assignedUser;
 
+    @ManyToOne
+    private User requestedUser;
+
+    @Enumerated(EnumType.STRING)
+    private ShiftStatus status;
+
     private boolean open;
 }

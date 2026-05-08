@@ -34,13 +34,18 @@ public class ShiftController {
     }
 
     @GetMapping("/user/{userId}")
-    public List<Shift> getUserShifts(@PathVariable Long userId) {
+    public List<ShiftDTO> getUserShifts(@PathVariable Long userId) {
         return shiftService.getUserShifts(userId);
     }
 
     @GetMapping("/week")
-    public List<Shift> getWeekPlan(@RequestParam String start) {
+    public List<ShiftDTO> getWeekPlan(@RequestParam String start) {
         return shiftService.getWeekPlan(LocalDate.parse(start));
+    }
+
+    @GetMapping("/pending")
+    public List<ShiftDTO> getPendingRequests() {
+        return shiftService.getPendingRequests();
     }
 
     @PostMapping("/{shiftId}/apply")
@@ -50,6 +55,16 @@ public class ShiftController {
         return ShiftMapper.toDTO(
                 shiftService.applyForShift(shiftId, dto.getUserId())
         );
+    }
+
+    @PostMapping("/{shiftId}/approve")
+    public ShiftDTO approve(@PathVariable Long shiftId) {
+        return shiftService.toDtoWithWarnings(shiftService.approveShift(shiftId));
+    }
+
+    @PostMapping("/{shiftId}/reject")
+    public ShiftDTO reject(@PathVariable Long shiftId) {
+        return shiftService.toDtoWithWarnings(shiftService.rejectShift(shiftId));
     }
 
     @PostMapping

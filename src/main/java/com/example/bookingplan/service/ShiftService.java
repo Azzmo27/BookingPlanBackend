@@ -1,15 +1,17 @@
 package com.example.bookingplan.service;
 
-
 import com.example.bookingplan.dto.ShiftDTO;
 import com.example.bookingplan.mapper.ShiftMapper;
 import com.example.bookingplan.model.Shift;
+import com.example.bookingplan.model.ShiftStatus;
 import com.example.bookingplan.model.User;
 import com.example.bookingplan.repository.ShiftRepository;
 import com.example.bookingplan.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 
 @Service
@@ -26,46 +28,124 @@ public class ShiftService {
     public List<ShiftDTO> getOpenShifts() {
         return shiftRepository.findByOpenTrue()
                 .stream()
-                .map(ShiftMapper::toDTO)
+                .map(this::toDtoWithWarnings)
                 .toList();
     }
 
-    public List<Shift> getUserShifts(Long userId) {
-        return shiftRepository.findByAssignedUserId(userId);
+    public List<ShiftDTO> getUserShifts(Long userId) {
+        return shiftRepository.findByAssignedUserId(userId)
+                .stream()
+                .map(this::toDtoWithWarnings)
+                .toList();
     }
 
-    public List<Shift> getWeekPlan(LocalDate start) {
-        return shiftRepository.findByDateBetween(start, start.plusDays(7));
+    public List<ShiftDTO> getWeekPlan(LocalDate start) {
+        return shiftRepository.findByDateBetween(start, start.plusDays(6))
+                .stream()
+                .map(this::toDtoWithWarnings)
+                .toList();
+    }
+
+    public List<ShiftDTO> getPendingRequests() {
+        return shiftRepository.findByStatus(ShiftStatus.REQUESTED)
+                .stream()
+                .map(this::toDtoWithWarnings)
+                .toList();
     }
 
     public Shift applyForShift(Long shiftId, Long userId) {
         Shift shift = shiftRepository.findById(shiftId)
                 .orElseThrow(() -> new RuntimeException("Shift not found"));
 
-        if (!shift.isOpen()) {
-            throw new RuntimeException("Shift already taken");
+        if ((shift.getStatus() != null && shift.getStatus() != ShiftStatus.OPEN) || !shift.isOpen()) {
+            throw new RuntimeException("Shift is not open");
         }
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 🚨 NY REGEL
-        boolean alreadyHasShift = shiftRepository
-                .existsByAssignedUserIdAndDate(userId, shift.getDate());
+        validateNoDoubleBooking(userId, shift.getDate());
 
-        if (alreadyHasShift) {
-            throw new RuntimeException("User already has a shift this day");
-        }
-
-        shift.setAssignedUser(user);
+        shift.setRequestedUser(user);
+        shift.setStatus(ShiftStatus.REQUESTED);
         shift.setOpen(false);
 
         return shiftRepository.save(shift);
     }
-    public Shift createShift(Shift shift) {
-        shift.setOpen(true);
+
+    public Shift approveShift(Long shiftId) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() -> new RuntimeException("Shift not found"));
+
+        if (shift.getStatus() != ShiftStatus.REQUESTED || shift.getRequestedUser() == null) {
+            throw new RuntimeException("Shift has no pending request");
+        }
+
+        Long userId = shift.getRequestedUser().getId();
+        if (shiftRepository.existsByAssignedUserIdAndDate(userId, shift.getDate())) {
+            throw new RuntimeException("User already has an approved shift this day");
+        }
+
+        shift.setAssignedUser(shift.getRequestedUser());
+        shift.setStatus(ShiftStatus.APPROVED);
+        shift.setOpen(false);
+
         return shiftRepository.save(shift);
     }
 
+    public Shift rejectShift(Long shiftId) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() -> new RuntimeException("Shift not found"));
 
+        if (shift.getStatus() != ShiftStatus.REQUESTED) {
+            throw new RuntimeException("Only pending requests can be rejected");
+        }
+
+        shift.setRequestedUser(null);
+        shift.setStatus(ShiftStatus.OPEN);
+        shift.setOpen(true);
+
+        return shiftRepository.save(shift);
+    }
+
+    public Shift createShift(Shift shift) {
+        shift.setOpen(true);
+        shift.setStatus(ShiftStatus.OPEN);
+        return shiftRepository.save(shift);
+    }
+
+    public ShiftDTO toDtoWithWarnings(Shift shift) {
+        ShiftDTO dto = ShiftMapper.toDTO(shift);
+
+        if (shift.getRequestedUser() != null) {
+            int weekHours = approvedWeekHours(shift.getRequestedUser().getId(), shift.getDate());
+            int weekHoursIfApproved = weekHours + shift.getType().getHours();
+
+            dto.setRequestedUserWeekHours(weekHours);
+            dto.setRequestedUserWeekHoursIfApproved(weekHoursIfApproved);
+            dto.setExceeds37Hours(weekHoursIfApproved > 37);
+        }
+
+        return dto;
+    }
+
+    private void validateNoDoubleBooking(Long userId, LocalDate date) {
+        boolean alreadyApproved = shiftRepository.existsByAssignedUserIdAndDate(userId, date);
+        boolean alreadyRequested = shiftRepository.existsByRequestedUserIdAndDate(userId, date);
+
+        if (alreadyApproved || alreadyRequested) {
+            throw new RuntimeException("User already has or requested a shift this day");
+        }
+    }
+
+    private int approvedWeekHours(Long userId, LocalDate date) {
+        LocalDate weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDate weekEnd = weekStart.plusDays(6);
+
+        return shiftRepository.findByAssignedUserIdAndDateBetween(userId, weekStart, weekEnd)
+                .stream()
+                .filter(shift -> shift.getStatus() == ShiftStatus.APPROVED)
+                .mapToInt(shift -> shift.getType().getHours())
+                .sum();
+    }
 }
