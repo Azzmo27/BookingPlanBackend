@@ -4,8 +4,11 @@ import com.example.bookingplan.dto.ShiftDTO;
 import com.example.bookingplan.mapper.ShiftMapper;
 import com.example.bookingplan.model.Shift;
 import com.example.bookingplan.model.ShiftStatus;
+import com.example.bookingplan.model.ShiftType;
+import com.example.bookingplan.model.Team;
 import com.example.bookingplan.model.User;
 import com.example.bookingplan.repository.ShiftRepository;
+import com.example.bookingplan.repository.TeamRepository;
 import com.example.bookingplan.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -19,10 +22,12 @@ public class ShiftService {
 
     private final ShiftRepository shiftRepository;
     private final UserRepository userRepository;
+    private final TeamRepository teamRepository;
 
-    public ShiftService(ShiftRepository shiftRepository, UserRepository userRepository) {
+    public ShiftService(ShiftRepository shiftRepository, UserRepository userRepository, TeamRepository teamRepository) {
         this.shiftRepository = shiftRepository;
         this.userRepository = userRepository;
+        this.teamRepository = teamRepository;
     }
 
     public List<ShiftDTO> getOpenShifts() {
@@ -112,6 +117,28 @@ public class ShiftService {
         shift.setOpen(true);
         shift.setStatus(ShiftStatus.OPEN);
         return shiftRepository.save(shift);
+    }
+
+    public Shift updateShift(Long shiftId, LocalDate date, String type, Long teamId) {
+        Shift shift = shiftRepository.findById(shiftId)
+                .orElseThrow(() -> new RuntimeException("Shift not found"));
+
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found"));
+
+        shift.setDate(date);
+        shift.setType(ShiftType.valueOf(type));
+        shift.setTeam(team);
+
+        return shiftRepository.save(shift);
+    }
+
+    public void deleteShift(Long shiftId) {
+        if (!shiftRepository.existsById(shiftId)) {
+            throw new RuntimeException("Shift not found");
+        }
+
+        shiftRepository.deleteById(shiftId);
     }
 
     public ShiftDTO toDtoWithWarnings(Shift shift) {

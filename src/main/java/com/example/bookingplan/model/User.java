@@ -15,6 +15,10 @@ public class User {
     private String name;
     private String email;
     private String password;
+    private String phone;
+    private String address;
+    private String emergencyContactName;
+    private String emergencyContactPhone;
 
     @Enumerated(EnumType.STRING)
     private Role role;

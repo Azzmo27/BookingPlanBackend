@@ -12,6 +12,7 @@ public interface ShiftRepository extends JpaRepository<Shift, Long> {
     List<Shift> findByOpenTrue();
 
     List<Shift> findByAssignedUserId(Long userId);
+    List<Shift> findByRequestedUserId(Long userId);
 
     List<Shift> findByDateBetween(LocalDate start, LocalDate end);
     boolean existsByAssignedUserIdAndDate(Long userId, LocalDate date);

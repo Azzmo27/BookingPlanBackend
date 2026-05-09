@@ -10,6 +10,10 @@ public class UserMapper {
         dto.setId(user.getId());
         dto.setName(user.getName());
         dto.setEmail(user.getEmail());
+        dto.setPhone(user.getPhone());
+        dto.setAddress(user.getAddress());
+        dto.setEmergencyContactName(user.getEmergencyContactName());
+        dto.setEmergencyContactPhone(user.getEmergencyContactPhone());
         dto.setRole(user.getRole());
         return dto;
     }

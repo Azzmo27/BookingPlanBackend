@@ -32,9 +32,12 @@ public class DataInitializer implements CommandLineRunner {
             saveTeam("Team 3");
         }
 
-        saveUserIfMissing("Vagtplanlaegger", "planner@example.com", "planner123", Role.ADMIN);
-        saveUserIfMissing("Afloser Anna", "anna@example.com", "anna123", Role.AFLOSER);
-        saveUserIfMissing("Afloser Omar", "omar@example.com", "omar123", Role.AFLOSER);
+        saveUserIfMissing("Vagtplanlægger", "planner@example.com", "planner123", Role.ADMIN,
+                "20 10 10 10", "Planvej 1, 1000 København", "Kontor", "70 10 10 10");
+        saveUserIfMissing("Afløser Anna", "anna@example.com", "anna123", Role.AFLOSER,
+                "22 11 33 44", "Søndergade 12, 8000 Aarhus", "Mette Hansen", "28 44 55 66");
+        saveUserIfMissing("Afløser Omar", "omar@example.com", "omar123", Role.AFLOSER,
+                "31 22 45 90", "Nørrebrogade 88, 2200 København N", "Sara Ali", "26 77 88 99");
 
         migrateMissingShiftStatuses();
     }
@@ -45,8 +48,41 @@ public class DataInitializer implements CommandLineRunner {
         teamRepository.save(team);
     }
 
-    private void saveUserIfMissing(String name, String email, String password, Role role) {
-        if (userRepository.findByEmailIgnoreCase(email).isPresent()) {
+    private void saveUserIfMissing(
+            String name,
+            String email,
+            String password,
+            Role role,
+            String phone,
+            String address,
+            String emergencyContactName,
+            String emergencyContactPhone
+    ) {
+        var existingUser = userRepository.findByEmailIgnoreCase(email);
+        if (existingUser.isPresent()) {
+            User user = existingUser.get();
+            boolean changed = false;
+
+            if (user.getPhone() == null) {
+                user.setPhone(phone);
+                changed = true;
+            }
+            if (user.getAddress() == null) {
+                user.setAddress(address);
+                changed = true;
+            }
+            if (user.getEmergencyContactName() == null) {
+                user.setEmergencyContactName(emergencyContactName);
+                changed = true;
+            }
+            if (user.getEmergencyContactPhone() == null) {
+                user.setEmergencyContactPhone(emergencyContactPhone);
+                changed = true;
+            }
+
+            if (changed) {
+                userRepository.save(user);
+            }
             return;
         }
 
@@ -55,6 +91,10 @@ public class DataInitializer implements CommandLineRunner {
         user.setEmail(email);
         user.setPassword(password);
         user.setRole(role);
+        user.setPhone(phone);
+        user.setAddress(address);
+        user.setEmergencyContactName(emergencyContactName);
+        user.setEmergencyContactPhone(emergencyContactPhone);
         userRepository.save(user);
     }
 

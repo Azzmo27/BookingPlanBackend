@@ -10,6 +10,7 @@ import com.example.bookingplan.model.ShiftType;
 import com.example.bookingplan.model.Team;
 import com.example.bookingplan.repository.TeamRepository;
 import com.example.bookingplan.service.ShiftService;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -82,5 +83,19 @@ public class ShiftController {
         return ShiftMapper.toDTO(
                 shiftService.createShift(shift)
         );
+    }
+
+    @PutMapping("/{shiftId}")
+    public ShiftDTO updateShift(@PathVariable Long shiftId,
+                                @RequestBody CreateShiftDTO dto) {
+        return shiftService.toDtoWithWarnings(
+                shiftService.updateShift(shiftId, dto.getDate(), dto.getType(), dto.getTeamId())
+        );
+    }
+
+    @DeleteMapping("/{shiftId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteShift(@PathVariable Long shiftId) {
+        shiftService.deleteShift(shiftId);
     }
 }
