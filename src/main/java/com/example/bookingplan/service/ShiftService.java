@@ -1,6 +1,8 @@
 package com.example.bookingplan.service;
 
 import com.example.bookingplan.dto.ShiftDTO;
+import com.example.bookingplan.exception.BadRequestException;
+import com.example.bookingplan.exception.NotFoundException;
 import com.example.bookingplan.mapper.ShiftMapper;
 import com.example.bookingplan.model.Shift;
 import com.example.bookingplan.model.ShiftStatus;
@@ -59,15 +61,19 @@ public class ShiftService {
     }
 
     public Shift applyForShift(Long shiftId, Long userId) {
+        if (userId == null) {
+            throw new BadRequestException("User id is required");
+        }
+
         Shift shift = shiftRepository.findById(shiftId)
-                .orElseThrow(() -> new RuntimeException("Shift not found"));
+                .orElseThrow(() -> new NotFoundException("Shift not found"));
 
         if ((shift.getStatus() != null && shift.getStatus() != ShiftStatus.OPEN) || !shift.isOpen()) {
-            throw new RuntimeException("Shift is not open");
+            throw new BadRequestException("Shift is not open");
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new NotFoundException("User not found"));
 
         validateNoDoubleBooking(userId, shift.getDate());
 
@@ -80,18 +86,19 @@ public class ShiftService {
 
     public Shift approveShift(Long shiftId) {
         Shift shift = shiftRepository.findById(shiftId)
-                .orElseThrow(() -> new RuntimeException("Shift not found"));
+                .orElseThrow(() -> new NotFoundException("Shift not found"));
 
         if (shift.getStatus() != ShiftStatus.REQUESTED || shift.getRequestedUser() == null) {
-            throw new RuntimeException("Shift has no pending request");
+            throw new BadRequestException("Shift has no pending request");
         }
 
         Long userId = shift.getRequestedUser().getId();
         if (shiftRepository.existsByAssignedUserIdAndDate(userId, shift.getDate())) {
-            throw new RuntimeException("User already has an approved shift this day");
+            throw new BadRequestException("User already has an approved shift this day");
         }
 
         shift.setAssignedUser(shift.getRequestedUser());
+        shift.setRequestedUser(null);
         shift.setStatus(ShiftStatus.APPROVED);
         shift.setOpen(false);
 
@@ -100,10 +107,10 @@ public class ShiftService {
 
     public Shift rejectShift(Long shiftId) {
         Shift shift = shiftRepository.findById(shiftId)
-                .orElseThrow(() -> new RuntimeException("Shift not found"));
+                .orElseThrow(() -> new NotFoundException("Shift not found"));
 
         if (shift.getStatus() != ShiftStatus.REQUESTED) {
-            throw new RuntimeException("Only pending requests can be rejected");
+            throw new BadRequestException("Only pending requests can be rejected");
         }
 
         shift.setRequestedUser(null);
@@ -121,10 +128,10 @@ public class ShiftService {
 
     public Shift updateShift(Long shiftId, LocalDate date, String type, Long teamId) {
         Shift shift = shiftRepository.findById(shiftId)
-                .orElseThrow(() -> new RuntimeException("Shift not found"));
+                .orElseThrow(() -> new NotFoundException("Shift not found"));
 
         Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new RuntimeException("Team not found"));
+                .orElseThrow(() -> new NotFoundException("Team not found"));
 
         shift.setDate(date);
         shift.setType(ShiftType.valueOf(type));
@@ -135,7 +142,7 @@ public class ShiftService {
 
     public void deleteShift(Long shiftId) {
         if (!shiftRepository.existsById(shiftId)) {
-            throw new RuntimeException("Shift not found");
+            throw new NotFoundException("Shift not found");
         }
 
         shiftRepository.deleteById(shiftId);
@@ -161,7 +168,7 @@ public class ShiftService {
         boolean alreadyRequested = shiftRepository.existsByRequestedUserIdAndDate(userId, date);
 
         if (alreadyApproved || alreadyRequested) {
-            throw new RuntimeException("User already has or requested a shift this day");
+            throw new BadRequestException("User already has or requested a shift this day");
         }
     }
 

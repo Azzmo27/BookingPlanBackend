@@ -14,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,12 +25,19 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
+@AutoConfigureMockMvc
 class ShiftServiceTests {
 
     @Autowired
     private ShiftService shiftService;
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @Autowired
     private ShiftRepository shiftRepository;
@@ -95,6 +104,45 @@ class ShiftServiceTests {
 
         assertEquals(ShiftStatus.APPROVED, approved.getStatus());
         assertEquals(user.getId(), approved.getAssignedUser().getId());
+        assertNull(approved.getRequestedUser());
+    }
+
+    @Test
+    void approveOpenShiftReturnsBadRequest() throws Exception {
+        Shift shift = openShift(LocalDate.of(2026, 5, 8));
+
+        mockMvc.perform(post("/api/shifts/{shiftId}/approve", shift.getId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Shift has no pending request"));
+    }
+
+    @Test
+    void approveMissingShiftReturnsNotFound() throws Exception {
+        mockMvc.perform(post("/api/shifts/{shiftId}/approve", 999L))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Shift not found"));
+    }
+
+    @Test
+    void applyWithoutUserIdReturnsBadRequest() throws Exception {
+        Shift shift = openShift(LocalDate.of(2026, 5, 8));
+
+        mockMvc.perform(post("/api/shifts/{shiftId}/apply", shift.getId())
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("User id is required"));
+    }
+
+    @Test
+    void applyWithInvalidJsonReturnsBadRequest() throws Exception {
+        Shift shift = openShift(LocalDate.of(2026, 5, 8));
+
+        mockMvc.perform(post("/api/shifts/{shiftId}/apply", shift.getId())
+                        .contentType("application/json")
+                        .content("{"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Request body is invalid"));
     }
 
     @Test

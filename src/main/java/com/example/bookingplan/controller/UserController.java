@@ -1,6 +1,7 @@
 package com.example.bookingplan.controller;
 
 import com.example.bookingplan.dto.UserDTO;
+import com.example.bookingplan.exception.NotFoundException;
 import com.example.bookingplan.mapper.UserMapper;
 import com.example.bookingplan.model.Shift;
 import com.example.bookingplan.model.ShiftStatus;
@@ -35,7 +36,7 @@ public class UserController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteUser(@PathVariable Long userId) {
         if (!userRepository.existsById(userId)) {
-            throw new RuntimeException("User not found");
+            throw new NotFoundException("User not found");
         }
 
         for (Shift shift : shiftRepository.findByAssignedUserId(userId)) {

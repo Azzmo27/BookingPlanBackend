@@ -4,6 +4,7 @@ package com.example.bookingplan.controller;
 import com.example.bookingplan.dto.ApplyShiftDTO;
 import com.example.bookingplan.dto.CreateShiftDTO;
 import com.example.bookingplan.dto.ShiftDTO;
+import com.example.bookingplan.exception.NotFoundException;
 import com.example.bookingplan.mapper.ShiftMapper;
 import com.example.bookingplan.model.Shift;
 import com.example.bookingplan.model.ShiftType;
@@ -76,7 +77,7 @@ public class ShiftController {
         shift.setType(ShiftType.valueOf(dto.getType()));
 
         Team team = teamRepository.findById(dto.getTeamId())
-                .orElseThrow();
+                .orElseThrow(() -> new NotFoundException("Team not found"));
 
         shift.setTeam(team);
 
